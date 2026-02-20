@@ -3,6 +3,7 @@ import logging
 from pathlib import Path
 
 from aiogram import Bot, Router
+from aiogram.exceptions import TelegramBadRequest
 from aiogram.types import BufferedInputFile, Message
 
 from app.services.style_transfer.base import StyledImage
@@ -26,7 +27,11 @@ async def photo_handler(
 
     photo = message.photo[-1]
     source_file = await bot.get_file(photo.file_id)
-    source_name = Path(source_file.file_path or "").name or f"{photo.file_id}.jpg"
+    if not source_file.file_path:
+        await status.edit_text("Не удалось скачать файл из Telegram. Попробуйте другое фото.")
+        return
+
+    source_name = Path(source_file.file_path).name or f"{photo.file_id}.jpg"
 
     source_stream = io.BytesIO()
     await bot.download_file(source_file.file_path, destination=source_stream)
@@ -36,6 +41,12 @@ async def photo_handler(
             image_bytes=source_stream.getvalue(),
             filename=source_name,
         )
+    except NotImplementedError:
+        await status.edit_text(
+            "Внешний AI провайдер ещё не подключён. "
+            "Добавьте реализацию в app/services/style_transfer/external.py."
+        )
+        return
     except Exception:
         logger.exception("Failed to stylize image")
         await status.edit_text(
@@ -50,7 +61,10 @@ async def photo_handler(
         ),
         caption=result.caption,
     )
-    await status.delete()
+    try:
+        await status.delete()
+    except TelegramBadRequest:
+        logger.debug("Status message was not deleted")
 
 
 @router.message()

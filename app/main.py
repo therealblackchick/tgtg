@@ -18,8 +18,13 @@ def build_style_service(settings: Settings) -> StyleTransferService:
             api_key=settings.ai_api_key,
             timeout_seconds=settings.ai_timeout_seconds,
         )
-    else:
+    elif provider_name == "mock":
         provider = MockStyleTransferProvider()
+    else:
+        raise ValueError(
+            f"Unknown STYLE_PROVIDER='{settings.style_provider}'. "
+            "Supported values: mock, external."
+        )
 
     return StyleTransferService(
         provider=provider,
@@ -38,6 +43,7 @@ async def run_bot() -> None:
     await dp.start_polling(
         bot,
         style_service=style_service,
+        allowed_updates=dp.resolve_used_update_types(),
     )
 
 
