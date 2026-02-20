@@ -1,0 +1,1 @@
+"""USSR style transfer providers."""
